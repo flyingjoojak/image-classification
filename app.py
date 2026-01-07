@@ -2,6 +2,8 @@ import streamlit as st
 from transformers import pipeline
 from PIL import Image
 import torch
+import requests
+from io import BytesIO
 
 # 1. 페이지 설정
 st.set_page_config(
@@ -22,20 +24,37 @@ def load_model():
 # 메인 UI
 def main():
     st.title("🖼️ 이미지 분류 AI 서비스")
-    st.markdown("이미지를 업로드하면 AI가 해당 이미지가 무엇인지 분류해줍니다.")
+    st.markdown("이미지를 업로드하거나 URL을 입력하면 AI가 해당 이미지가 무엇인지 분류해줍니다.")
     st.markdown("---")
 
     # 모델 로드 (최초 1회만 로딩됨)
     with st.spinner("AI 모델을 불러오는 중입니다..."):
         classifier = load_model()
 
-    # 3. 파일 업로더
-    uploaded_file = st.file_uploader("분류할 이미지를 업로드하세요", type=["jpg", "jpeg", "png"])
+    # 3. 이미지 입력 (Tabs 사용)
+    tab1, tab2 = st.tabs(["📁 파일 업로드", "🔗 이미지 URL"])
+    
+    image = None
 
-    if uploaded_file is not None:
+    with tab1:
+        uploaded_file = st.file_uploader("분류할 이미지를 업로드하세요", type=["jpg", "jpeg", "png"])
+        if uploaded_file is not None:
+             image = Image.open(uploaded_file)
+
+    with tab2:
+        url = st.text_input("이미지 URL을 입력하세요")
+        if url:
+            try:
+                response = requests.get(url)
+                response.raise_for_status() # HTTP 에러 발생 시 예외 처리
+                image = Image.open(BytesIO(response.content))
+            except Exception as e:
+                st.error(f"이미지를 불러올 수 없습니다: {e}")
+                image = None
+
+    if image is not None:
         # 4. 이미지 처리 및 표시
-        image = Image.open(uploaded_file)
-        st.image(image, caption="업로드된 이미지", use_container_width=True)
+        st.image(image, caption="입력된 이미지", width="stretch")
 
         # 5. 분류 실행 버튼
         if st.button("이미지 분류 실행"):
